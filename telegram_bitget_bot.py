@@ -1,85 +1,96 @@
-from flask import Flask, request
-import requests
 import os
-import threading
+import requests
+from flask import Flask, request
+from bitget.rest.mix import MixOrderApi, MixMarketApi
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-CHAT_ID = os.environ.get("CHAT_ID")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
+API_KEY = os.getenv("API_KEY")
+API_SECRET = os.getenv("API_SECRET")
+PASSPHRASE = os.getenv("PASSPHRASE")
+CAPITAL = float(os.getenv("CAPITAL", "100"))
+RISK_PER_TRADE = float(os.getenv("RISK_PER_TRADE", "0.02"))
+MAX_SL_COUNT = 5
 
-API_KEY = os.environ.get("API_KEY")
-API_SECRET = os.environ.get("API_SECRET")
-PASSPHRASE = os.environ.get("PASSPHRASE")
+order_api = MixOrderApi(API_KEY, API_SECRET, PASSPHRASE)
+market_api = MixMarketApi(API_KEY, API_SECRET, PASSPHRASE)
 
-CAPITAL = float(os.environ.get("CAPITAL", 100))
-RISK_PER_TRADE = float(os.environ.get("RISK_PER_TRADE", 0.02))
+bot_active = False
+sl_count = 0
 
-active = False
-
-def send_message(msg):
+def send_message(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": msg}
+    payload = {"chat_id": CHAT_ID, "text": text}
     requests.post(url, json=payload)
+
+def get_market_price(symbol):
+    try:
+        ticker = market_api.get_ticker("umcbl", symbol)
+        return float(ticker["data"]["last"])
+    except Exception:
+        return None
+
+def execute_trade(symbol="BTCUSDT", leverage=5):
+    global sl_count
+    size = round(CAPITAL * RISK_PER_TRADE * leverage / 100, 2)
+    price = get_market_price(symbol)
+    if not price:
+        send_message("❌ Erreur lors de la récupération du prix.")
+        return
+
+    try:
+        order = order_api.place_order(
+            symbol=symbol,
+            marginCoin="USDT",
+            size=str(size),
+            side="open_long",
+            orderType="market",
+            price="",
+            leverage=str(leverage),
+            presetStopLossPrice=str(round(price * 0.99, 2)),
+            presetTakeProfitPrice=str(round(price * 1.002, 2))
+        )
+        send_message(f"✅ Trade exécuté : Scalping {symbol} à {price}")
+    except Exception as e:
+        sl_count += 1
+        send_message(f"❌ Échec de l’ordre : {str(e)}")
+        if sl_count >= MAX_SL_COUNT:
+            send_message("⚠️ 5 SL consécutifs. Le bot attend un nouveau signal.")
+            return
 
 @app.route("/", methods=["GET"])
 def home():
-    return "✅ Serveur actif", 200
+    return "✅ Serveur actif.", 200
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    global active
-    data = request.get_json()
+    global bot_active
+    data = request.get_json(force=True)
     print("📩 Webhook reçu:", data)
 
     if "message" in data:
-        msg = data["message"]
-        text = msg.get("text", "").strip().lower()
-
+        text = data["message"].get("text", "").lower()
         if text == "/start":
-            if not active:
-                active = True
-                send_message("🚀 SniperBot démarré.")
-                threading.Thread(target=scan_and_trade, daemon=True).start()
-            else:
-                send_message("✅ SniperBot déjà actif.")
-
+            bot_active = True
+            send_message("🚀 SniperBot démarré.")
+            execute_trade()
         elif text == "/stop":
-            active = False
+            bot_active = False
             send_message("🛑 SniperBot arrêté.")
-
+        elif text == "/strat":
+            send_message("📋 Stratégie : Scalping, sniper retracements 0.618-0.786, max 2% risk, SL auto, TP rapide.")
+        elif text.startswith("buy"):
+            if bot_active:
+                execute_trade()
         elif text == "/ping":
-            send_message("🏓 Pong ! Le bot est en ligne.")
+            send_message("🏓 Pong !")
 
-        elif "strat" in text:
-            send_message("📘 Stratégie : Scalping intelligent sur BTC. Risque : 2%, levier max 5x, retracements parfaits. Trade dès qu’un signal fort est détecté.")
-
-    return "OK", 200
-
-def scan_and_trade():
-    import time
-    while active:
-        # --- Exemple de détection de signal ---
-        opportunity = detect_signal()
-        if opportunity:
-            send_message("📈 Signal détecté sur BTC/USDT ! Ouverture de position en scalping..")
-            success = place_order()
-            if success:
-                send_message("✅ Trade exécuté ✅")
-            else:
-                send_message("⚠️ Échec de l’exécution.")
-        time.sleep(30)  # Attente avant nouveau scan
-
-def detect_signal():
-    # Simule une détection d’opportunité
-    import random
-    return random.random() > 0.8
-
-def place_order():
-    # Simule une exécution sur Bitget
-    # TODO : remplacer par appel réel API Bitget via signature
-    print("💼 Envoi ordre à Bitget (simulation)")
-    return True
+    return "OK ✅", 200
 
 if __name__ == "__main__":
     print("🚀 Serveur webhook lancé.")
