@@ -1,18 +1,26 @@
 from flask import Flask, request
-import os
 import requests
+import os
+import threading
 
 app = Flask(__name__)
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+CHAT_ID = os.environ.get("CHAT_ID")
 
-def send_message(text):
+API_KEY = os.environ.get("API_KEY")
+API_SECRET = os.environ.get("API_SECRET")
+PASSPHRASE = os.environ.get("PASSPHRASE")
+
+CAPITAL = float(os.environ.get("CAPITAL", 100))
+RISK_PER_TRADE = float(os.environ.get("RISK_PER_TRADE", 0.02))
+
+active = False
+
+def send_message(msg):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": text}
+    payload = {"chat_id": CHAT_ID, "text": msg}
     requests.post(url, json=payload)
-
-started = False
 
 @app.route("/", methods=["GET"])
 def home():
@@ -20,25 +28,58 @@ def home():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    global started
-    data = request.get_json(force=True)
+    global active
+    data = request.get_json()
     print("📩 Webhook reçu:", data)
 
     if "message" in data:
-        chat_id = data["message"]["chat"]["id"]
-        text = data["message"].get("text", "")
+        msg = data["message"]
+        text = msg.get("text", "").strip().lower()
+
         if text == "/start":
-            if not started:
-                started = True
-                send_message("🚀 SniperBot démarré. Recherche de trades BTC en cours...")
-                # Lancer ici la stratégie de scalping BTC
-                simulate_trade_btc()
+            if not active:
+                active = True
+                send_message("🚀 SniperBot démarré.")
+                threading.Thread(target=scan_and_trade, daemon=True).start()
             else:
                 send_message("✅ SniperBot déjà actif.")
-    return "OK ✅", 200
 
-def simulate_trade_btc():
-    send_message("📈 Signal détecté sur BTC/USDT ! Ouverture de position en scalping...")
+        elif text == "/stop":
+            active = False
+            send_message("🛑 SniperBot arrêté.")
+
+        elif text == "/ping":
+            send_message("🏓 Pong ! Le bot est en ligne.")
+
+        elif "strat" in text:
+            send_message("📘 Stratégie : Scalping intelligent sur BTC. Risque : 2%, levier max 5x, retracements parfaits. Trade dès qu’un signal fort est détecté.")
+
+    return "OK", 200
+
+def scan_and_trade():
+    import time
+    while active:
+        # --- Exemple de détection de signal ---
+        opportunity = detect_signal()
+        if opportunity:
+            send_message("📈 Signal détecté sur BTC/USDT ! Ouverture de position en scalping..")
+            success = place_order()
+            if success:
+                send_message("✅ Trade exécuté ✅")
+            else:
+                send_message("⚠️ Échec de l’exécution.")
+        time.sleep(30)  # Attente avant nouveau scan
+
+def detect_signal():
+    # Simule une détection d’opportunité
+    import random
+    return random.random() > 0.8
+
+def place_order():
+    # Simule une exécution sur Bitget
+    # TODO : remplacer par appel réel API Bitget via signature
+    print("💼 Envoi ordre à Bitget (simulation)")
+    return True
 
 if __name__ == "__main__":
     print("🚀 Serveur webhook lancé.")
