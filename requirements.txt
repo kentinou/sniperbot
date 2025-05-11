@@ -1,5 +1,6 @@
 flask
 requests
 python-dotenv
-python-bitget==1.0.8
+bitget-python-sdk-api==1.0.2
+
 
