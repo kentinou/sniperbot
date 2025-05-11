@@ -1,4 +1,4 @@
 flask
 requests
 python-dotenv
-python-bitget @ https://github.com/bitget-exchange/bitget-python-sdk/releases/download/v1.0.8/python_bitget-1.0.8-py2.py3-none-any.whl
+python-bitget==1.0.8
