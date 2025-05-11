@@ -47,7 +47,7 @@ def webhook():
 
     elif text.startswith("buy"):
         symbol = "BTCUSDT_UMCBL"
-        size = 0.01  # ou calcul dynamique
+        size = 0.01  # adapte selon ton capital
         send_message(f"📈 Signal détecté sur {symbol} ! Ouverture de position...")
         try:
             result = order_api.place_order(
