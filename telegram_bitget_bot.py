@@ -1,7 +1,7 @@
 import os
 import json
 from flask import Flask, request
-from bitget.rest.bitget_client import BitgetClient  # ✅ CORRECT
+from python_bitget.rest.bitget_client import BitgetClient  
 from dotenv import load_dotenv
 import telegram
 
