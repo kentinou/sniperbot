@@ -2,7 +2,7 @@ import os
 import requests
 from flask import Flask, request
 from dotenv import load_dotenv
-from bitget.client import Client  
+from python_bitget.client import Client
 
 # Charger les variables d'environnement
 load_dotenv()
