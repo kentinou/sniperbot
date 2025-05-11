@@ -1,50 +1,45 @@
-
 from flask import Flask, request
 import os
 import requests
-import json
-from bitget import place_order, cancel_all_orders
+
+app = Flask(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-app = Flask(__name__)
-
-is_running = False
-loss_streak = 0
-
-def send_message(msg):
+def send_message(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": msg
-    }
+    payload = {"chat_id": CHAT_ID, "text": text}
     requests.post(url, json=payload)
+
+started = False
 
 @app.route("/", methods=["GET"])
 def home():
-    return "🤖 Serveur actif", 200
+    return "✅ Serveur actif", 200
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    global is_running, loss_streak
+    global started
+    data = request.get_json(force=True)
+    print("📩 Webhook reçu:", data)
 
-    data = request.get_json()
-    if "message" in data and "text" in data["message"]:
-        text = data["message"]["text"]
+    if "message" in data:
+        chat_id = data["message"]["chat"]["id"]
+        text = data["message"].get("text", "")
         if text == "/start":
-            if not is_running:
-                is_running = True
-                send_message("🚀 SniperBot démarré.")
-                place_order()
+            if not started:
+                started = True
+                send_message("🚀 SniperBot démarré. Recherche de trades BTC en cours...")
+                # Lancer ici la stratégie de scalping BTC
+                simulate_trade_btc()
             else:
-                send_message("🚀 SniperBot déjà actif.")
-        elif text == "/stop":
-            is_running = False
-            cancel_all_orders()
-            send_message("🛑 SniperBot arrêté.")
-    return "OK", 200
+                send_message("✅ SniperBot déjà actif.")
+    return "OK ✅", 200
+
+def simulate_trade_btc():
+    send_message("📈 Signal détecté sur BTC/USDT ! Ouverture de position en scalping...")
 
 if __name__ == "__main__":
-    send_message("🤖 SniperBot prêt. En attente de /start.")
+    print("🚀 Serveur webhook lancé.")
     app.run(host="0.0.0.0", port=8080)
