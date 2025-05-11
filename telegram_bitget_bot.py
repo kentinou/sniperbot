@@ -35,10 +35,11 @@ def send_msg(txt):
 def root():
     return "SniperBot actif ✅", 200
 
-@app.route(f"/{BOT_TOKEN}", methods=["POST"])
+@app.route("/webhook", methods=["POST"])
 def webhook():
     global enabled
     data = request.get_json()
+    print("📩 Reçu webhook:", data)
     if "message" in data:
         msg = data["message"]
         chat_id = str(msg["chat"]["id"])
