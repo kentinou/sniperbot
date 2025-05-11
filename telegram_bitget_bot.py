@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request
 from dotenv import load_dotenv
-from python_bitget.client import Client
+from bitget.client import Client
 from python_bitget.apis.mix import MixOrderApi
 
 load_dotenv()
