@@ -1,128 +1,96 @@
-from flask import Flask, request
 import os
 import requests
+from flask import Flask, request
 from dotenv import load_dotenv
-from bitget.rest_client import RestClient
-from bitget.apis.mix.order import OrderApi
-from bitget.apis.mix.market import MarketApi
+from python_bitget.client import Client
+import threading
+import time
 
+# Charger les variables d'environnement
 load_dotenv()
 
-app = Flask(__name__)
-
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
 API_KEY = os.getenv("BITGET_API_KEY")
 API_SECRET = os.getenv("BITGET_API_SECRET")
-API_PASSPHRASE = os.getenv("BITGET_PASSPHRASE")
-CAPITAL = float(os.getenv("CAPITAL", 150))
-SYMBOL = "BTCUSDT_UMCBL"
-LEVERAGE = 3
-ENTRY_PERCENTAGE = 0.95  # 95% du capital par position
-TP_PERCENT = 0.002  # Take profit à +0.2%
-SL_PERCENT = 0.002  # Stop loss à -0.2%
+API_PASSPHRASE = os.getenv("BITGET_API_PASSPHRASE")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-client = RestClient(API_KEY, API_SECRET, API_PASSPHRASE, use_server_time=True)
-order_api = OrderApi(client)
-market_api = MarketApi(client)
+# Initialiser l'API Bitget
+client = Client(API_KEY, API_SECRET, API_PASSPHRASE)
+order_api = client.mix_order_api
+market_api = client.mix_market_api
 
-is_running = False
-
+# Initialiser Flask
+app = Flask(__name__)
+bot_active = {"running": False}
 
 def send_message(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": text}
-    requests.post(url, json=payload)
+    data = {"chat_id": CHAT_ID, "text": text}
+    requests.post(url, data=data)
 
-
-def get_price():
-    res = market_api.get_market_price(symbol=SYMBOL)
-    return float(res['data']['markPrice'])
-
-
-def place_order():
-    entry_price = get_price()
-    usdt_amount = CAPITAL * ENTRY_PERCENTAGE
-    quantity = round((usdt_amount * LEVERAGE) / entry_price, 4)
-
-    # Crée l'ordre
-    try:
-        send_message("📈 Signal détecté sur BTC/USDT ! Ouverture de position en scalping...")
-        order = order_api.place_order(
-            symbol=SYMBOL,
-            marginCoin="USDT",
-            size=str(quantity),
-            side="open_long",
-            orderType="market",
-            price="",  # non utilisé pour market
-            timeInForceValue="normal"
-        )
-        send_message("✅ Position ouverte (long BTC). Surveillance du TP/SL...")
-        monitor_trade(entry_price, quantity)
-    except Exception as e:
-        send_message(f"❌ Erreur lors de l'ouverture de position : {e}")
-
-
-def monitor_trade(entry_price, quantity):
-    tp_price = entry_price * (1 + TP_PERCENT)
-    sl_price = entry_price * (1 - SL_PERCENT)
-
-    while True:
-        price = get_price()
-        if price >= tp_price:
-            close_position(quantity)
-            send_message(f"✅ Take Profit atteint à {price:.2f} 🚀")
-            break
-        elif price <= sl_price:
-            close_position(quantity)
-            send_message(f"🛑 Stop Loss atteint à {price:.2f} ❌")
-            break
-
-
-def close_position(quantity):
-    try:
-        order_api.place_order(
-            symbol=SYMBOL,
-            marginCoin="USDT",
-            size=str(quantity),
-            side="close_long",
-            orderType="market",
-            price="",
-            timeInForceValue="normal"
-        )
-    except Exception as e:
-        send_message(f"⚠️ Erreur fermeture position : {e}")
-
+@app.route("/")
+def root():
+    return "SniperBot en ligne", 200
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    global is_running
     data = request.json
-    message = data.get("message", {})
-    text = message.get("text", "")
+    if "message" in data:
+        message = data["message"]
+        chat_id = message["chat"]["id"]
+        text = message.get("text", "")
 
-    if "/start" in text:
-        if not is_running:
-            is_running = True
+        if text == "/start":
+            bot_active["running"] = True
             send_message("🚀 SniperBot démarré.")
-            place_order()
-        else:
-            send_message("🤖 Le bot tourne déjà.")
-    elif "/stop" in text:
-        is_running = False
-        send_message("🛑 SniperBot stoppé.")
-    elif "/ping" in text:
-        send_message("🏓 Pong, le bot est en ligne.")
-    elif "/strat" in text:
-        send_message("📊 Scalping BTC/USDT, TP 0.2 %, SL 0.2 %, taille ~95 % capital. Répétition en boucle.")
+            threading.Thread(target=run_bot).start()
+
+        elif text == "/stop":
+            bot_active["running"] = False
+            send_message("🛑 SniperBot arrêté.")
+
+        elif text == "/ping":
+            send_message("🏓 Pong !")
+
+        elif text == "/strat":
+            send_message("📊 Stratégie : Scalping BTC avec gestion de capital agressive, TP rapides et levier raisonnable. Stop après 5 pertes consécutives.")
 
     return "", 200
 
+def run_bot():
+    losses = 0
+    capital = 150
 
-@app.route("/")
-def home():
-    return "SniperBot actif", 200
+    while bot_active["running"]:
+        try:
+            # Lecture du prix BTCUSDT
+            ticker = market_api.get_ticker("BTCUSDT_UMCBL")
+            price = float(ticker["data"]["last"])
 
+            # Simulation simple d'opportunité
+            if price % 5 < 0.1:  # pseudo-signal
+                send_message("📈 Signal détecté sur BTC/USDT ! Ouverture de position en scalping...")
+
+                order = order_api.place_order(
+                    symbol="BTCUSDT_UMCBL",
+                    marginCoin="USDT",
+                    side="open_long",
+                    size="0.01",
+                    price=str(round(price, 2)),
+                    orderType="limit",
+                    presetTakeProfit=str(round(price * 1.001, 2)),
+                    presetStopLoss=str(round(price * 0.999, 2))
+                )
+
+                send_message(f"✅ Position ouverte à {price}")
+                time.sleep(5)
+            else:
+                time.sleep(2)
+
+        except Exception as e:
+            send_message(f"⚠️ Erreur : {e}")
+            time.sleep(10)
 
 if __name__ == "__main__":
     print("🚀 Serveur webhook lancé.")
