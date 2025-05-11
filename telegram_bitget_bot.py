@@ -7,7 +7,6 @@ from bitget import BitgetClient
 
 app = Flask(__name__)
 
-# ENV VARS
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 API_KEY = os.getenv("API_KEY")
@@ -17,7 +16,6 @@ CAPITAL = float(os.getenv("CAPITAL", "150"))
 RISK = float(os.getenv("RISK_PER_TRADE", "0.02"))
 MAX_LOSSES = 5
 
-# GLOBALS
 client = BitgetClient(API_KEY, API_SECRET, PASSPHRASE)
 enabled = False
 consecutive_losses = 0
@@ -39,13 +37,18 @@ def root():
 def webhook():
     global enabled
     data = request.get_json()
-    print("📩 Reçu webhook:", data)
+    print("📩 Reçu via webhook:", data)
+
     if "message" in data:
         msg = data["message"]
         chat_id = str(msg["chat"]["id"])
         text = msg.get("text", "").strip().lower()
 
-        if chat_id != str(CHAT_ID):
+        print("🔍 CHAT_ID REÇU:", chat_id)
+        print("🧾 CHAT_ID ENV:", CHAT_ID)
+
+        if str(chat_id) != str(CHAT_ID):
+            print("⛔ Chat ID non autorisé.")
             return "Unauthorized", 403
 
         if text == "/start":
