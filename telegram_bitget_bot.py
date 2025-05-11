@@ -3,7 +3,7 @@ import time
 import requests
 from flask import Flask, request
 from dotenv import load_dotenv
-from python_bitget.client import Client  # ✅ CORRECT pour python-bitget==1.0.8
+from bitget.client import Client
 
 load_dotenv()
 
