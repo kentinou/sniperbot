@@ -1,42 +1,50 @@
+
+import os
 import time
 import hmac
 import hashlib
+import base64
 import requests
+import json
 
-class BitgetClient:
-    def __init__(self, api_key, api_secret, passphrase):
-        self.api_key = api_key
-        self.api_secret = api_secret
-        self.passphrase = passphrase
-        self.base_url = "https://api.bitget.com/api"
+API_KEY = os.getenv("API_KEY")
+API_SECRET = os.getenv("API_SECRET")
+PASSPHRASE = os.getenv("PASSPHRASE")
+BASE_URL = "https://api.bitget.com"
 
-    def _headers(self, method, path, timestamp, body=""):
-        message = f"{timestamp}{method}{path}{body}"
-        signature = hmac.new(
-            self.api_secret.encode(), message.encode(), hashlib.sha256
-        ).hexdigest()
-        return {
-            "ACCESS-KEY": self.api_key,
-            "ACCESS-SIGN": signature,
-            "ACCESS-TIMESTAMP": timestamp,
-            "ACCESS-PASSPHRASE": self.passphrase,
-            "Content-Type": "application/json"
-        }
+headers = {
+    "Content-Type": "application/json",
+    "ACCESS-KEY": API_KEY,
+    "ACCESS-PASSPHRASE": PASSPHRASE
+}
 
-    def get_price(self, symbol):
-        try:
-            url = f"https://api.bitget.com/api/spot/v1/market/ticker?symbol={symbol}"
-            res = requests.get(url)
-            return res.json()["data"]["last"]
-        except:
-            return None
+def sign_request(timestamp, method, request_path, body=""):
+    message = f"{timestamp}{method}{request_path}{body}"
+    mac = hmac.new(bytes(API_SECRET, encoding='utf8'), bytes(message, encoding='utf8'), digestmod=hashlib.sha256)
+    return base64.b64encode(mac.digest()).decode()
 
-    def place_order(self, symbol, side, size, entry, sl, tp):
-        print(f"Placer {side.upper()} {symbol} qty={size} entry={entry}")
-        return {"symbol": symbol, "side": side, "entry": entry, "tp": tp, "sl": sl}
+def place_order():
+    timestamp = str(int(time.time() * 1000))
+    path = "/api/mix/v1/order/placeOrder"
+    url = BASE_URL + path
 
-    def monitor_trade(self, order):
-        print(f"Moniteur trade: {order}")
-        # Simule un TP ou SL
-        time.sleep(5)
-        return "tp"
+    order_data = {
+        "symbol": "BTCUSDT",
+        "marginCoin": "USDT",
+        "size": "0.01",
+        "side": "open_long",
+        "orderType": "market",
+        "leverage": "5"
+    }
+
+    body = json.dumps(order_data)
+    headers.update({
+        "ACCESS-TIMESTAMP": timestamp,
+        "ACCESS-SIGN": sign_request(timestamp, "POST", path, body)
+    })
+
+    response = requests.post(url, headers=headers, data=body)
+    print("📥 Order Response:", response.json())
+
+def cancel_all_orders():
+    print("🛑 Annulation des ordres (à implémenter si nécessaire)")
