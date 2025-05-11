@@ -1,14 +1,14 @@
 import os
 from flask import Flask, request
 from dotenv import load_dotenv
-from python_bitget.client import Client
-from python_bitget.apis.mix import MixOrderApi
+from bitget.client import Client
+from bitget.apis.mix import MixOrderApi
 
 load_dotenv()
 
 app = Flask(__name__)
 
-# ENV VARS
+# 🔐 Variables d'environnement
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 PASSPHRASE = os.getenv("PASSPHRASE")
@@ -16,7 +16,7 @@ CHAT_ID = os.getenv("CHAT_ID")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CAPITAL = float(os.getenv("CAPITAL"))
 
-# Bitget client setup
+# ✅ Initialisation Bitget
 client = Client(API_KEY, API_SECRET, PASSPHRASE)
 order_api = MixOrderApi(client)
 
@@ -28,9 +28,11 @@ def index():
 def webhook():
     data = request.get_json()
     print(f"📩 Webhook reçu: {data}")
-    # Tu peux traiter le contenu ici et lancer une position via `order_api`
+    
+    # Tu peux traiter ici les signaux et déclencher un ordre Bitget
+    # Exemple : order_api.place_order(...)
+
     return '', 200
 
 if __name__ == '__main__':
-    print("🚀 Serveur webhook lancé sur port 8080")
     app.run(host='0.0.0.0', port=8080)
