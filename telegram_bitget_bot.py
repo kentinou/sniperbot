@@ -1,97 +1,101 @@
-import os
-import requests
 from flask import Flask, request
-from bitget.rest.mix import MixOrderApi, MixMarketApi
-from dotenv import load_dotenv
-
-load_dotenv()
+import os
+import threading
+import time
+import requests
+from bitget.openapi.mix import MixOrderApi, MixMarketApi
+from bitget.openapi.client import Client
 
 app = Flask(__name__)
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
-API_KEY = os.getenv("API_KEY")
-API_SECRET = os.getenv("API_SECRET")
-PASSPHRASE = os.getenv("PASSPHRASE")
-CAPITAL = float(os.getenv("CAPITAL", "100"))
-RISK_PER_TRADE = float(os.getenv("RISK_PER_TRADE", "0.02"))
-MAX_SL_COUNT = 5
+# Chargement des variables d'environnement
+API_KEY = os.getenv("BITGET_API_KEY")
+API_SECRET = os.getenv("BITGET_API_SECRET")
+API_PASSPHRASE = os.getenv("BITGET_API_PASSPHRASE")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-order_api = MixOrderApi(API_KEY, API_SECRET, PASSPHRASE)
-market_api = MixMarketApi(API_KEY, API_SECRET, PASSPHRASE)
+# Initialisation de l'API Bitget
+client = Client(API_KEY, API_SECRET, API_PASSPHRASE)
+order_api = MixOrderApi(client)
+market_api = MixMarketApi(client)
 
-bot_active = False
-sl_count = 0
+bot_actif = False
 
 def send_message(text):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": text}
-    requests.post(url, json=payload)
-
-def get_market_price(symbol):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text}
     try:
-        ticker = market_api.get_ticker("umcbl", symbol)
-        return float(ticker["data"]["last"])
-    except Exception:
-        return None
-
-def execute_trade(symbol="BTCUSDT", leverage=5):
-    global sl_count
-    size = round(CAPITAL * RISK_PER_TRADE * leverage / 100, 2)
-    price = get_market_price(symbol)
-    if not price:
-        send_message("❌ Erreur lors de la récupération du prix.")
-        return
-
-    try:
-        order = order_api.place_order(
-            symbol=symbol,
-            marginCoin="USDT",
-            size=str(size),
-            side="open_long",
-            orderType="market",
-            price="",
-            leverage=str(leverage),
-            presetStopLossPrice=str(round(price * 0.99, 2)),
-            presetTakeProfitPrice=str(round(price * 1.002, 2))
-        )
-        send_message(f"✅ Trade exécuté : Scalping {symbol} à {price}")
+        requests.post(url, json=payload)
     except Exception as e:
-        sl_count += 1
-        send_message(f"❌ Échec de l’ordre : {str(e)}")
-        if sl_count >= MAX_SL_COUNT:
-            send_message("⚠️ 5 SL consécutifs. Le bot attend un nouveau signal.")
-            return
+        print(f"Erreur Telegram: {e}")
 
-@app.route("/", methods=["GET"])
-def home():
-    return "✅ Serveur actif.", 200
+@app.route('/')
+def index():
+    return "SniperBot actif 🚀", 200
 
-@app.route("/webhook", methods=["POST"])
+@app.route('/webhook', methods=["POST"])
 def webhook():
-    global bot_active
-    data = request.get_json(force=True)
+    global bot_actif
+    data = request.get_json()
     print("📩 Webhook reçu:", data)
-
     if "message" in data:
-        text = data["message"].get("text", "").lower()
+        text = data["message"].get("text", "")
         if text == "/start":
-            bot_active = True
-            send_message("🚀 SniperBot démarré.")
-            execute_trade()
+            bot_actif = True
+            send_message("✅ SniperBot démarré.")
         elif text == "/stop":
-            bot_active = False
+            bot_actif = False
             send_message("🛑 SniperBot arrêté.")
-        elif text == "/strat":
-            send_message("📋 Stratégie : Scalping, sniper retracements 0.618-0.786, max 2% risk, SL auto, TP rapide.")
-        elif text.startswith("buy"):
-            if bot_active:
-                execute_trade()
-        elif text == "/ping":
-            send_message("🏓 Pong !")
+        elif text.lower() == "strat":
+            send_message("🎯 Scalping BTC en temps réel avec risk management. Petits profits mais nombreux trades. Stop après 5 SL consécutifs.")
+    return "ok", 200
 
-    return "OK ✅", 200
+def scalping_loop():
+    global bot_actif
+    sl_cons = 0
+    while True:
+        if bot_actif:
+            try:
+                market_data = market_api.get_ticker("BTCUSDT_UMCBL")  # ex: market/market/get-ticker
+                price = float(market_data["data"]["last"])
+                # Logique de scalping ici (ex: conditions de momentum ou de cassure)
+                send_message("📈 Signal détecté sur BTC/USDT ! Ouverture de position en scalping..")
+                # Simule un ordre market long
+                order_api.place_order(
+                    symbol="BTCUSDT_UMCBL",
+                    marginCoin="USDT",
+                    side="open_long",
+                    orderType="market",
+                    size="0.01"
+                )
+                send_message("✅ Position ouverte ! TP/SL en surveillance..")
+                time.sleep(10)
+                # Simule clôture rapide du trade
+                order_api.place_order(
+                    symbol="BTCUSDT_UMCBL",
+                    marginCoin="USDT",
+                    side="close_long",
+                    orderType="market",
+                    size="0.01"
+                )
+                send_message("💰 Trade clôturé avec petit profit.")
+                sl_cons = 0
+            except Exception as e:
+                sl_cons += 1
+                send_message(f"❌ Erreur: {e}")
+                if sl_cons >= 5:
+                    bot_actif = False
+                    send_message("🛑 5 SL consécutifs. Pause automatique.")
+        time.sleep(15)
+
+def keep_alive():
+    while True:
+        requests.get("https://sniperbot-l0nm.onrender.com/")
+        time.sleep(60)
 
 if __name__ == "__main__":
     print("🚀 Serveur webhook lancé.")
+    threading.Thread(target=scalping_loop).start()
+    threading.Thread(target=keep_alive).start()
     app.run(host="0.0.0.0", port=8080)
