@@ -1,3 +1,3 @@
-python-bitget==1.1.2
+git+https://github.com/bitget-exchange/bitget-api-sdk-python.git
 python-telegram-bot
 python-dotenv
