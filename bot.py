@@ -118,4 +118,4 @@ async def startup_event():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    uvicorn.run("bot_debug:app", host="0.0.0.0", port=port, reload=False)
+    uvicorn.run("bot:app", host="0.0.0.0", port=port, reload=False)
