@@ -18,14 +18,12 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 bot_active = {"status": False}
 bitget_client = Client(API_KEY, API_SECRET, API_PASSPHRASE, use_server_time=True)
 
-# Serveur HTTP minimal (pour Render)
 app = FastAPI()
 
 @app.get("/")
 async def root():
     return {"status": "SuperBossSniperBot actif"}
 
-# Bot Telegram
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         result = open_position()
@@ -35,7 +33,7 @@ async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bot_active["status"] = True
-    await update.message.reply_text("🤖 Bot activé. Scalping en cours...")
+    await update.message.reply_text("🤖 Bot activé. Scalping intelligent en cours...")
     await scalping_loop(update)
 
 async def stop_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -74,23 +72,40 @@ def close_positions():
         productType='usdt-futures'
     )
 
+def get_unrealized_pnl():
+    try:
+        positions = bitget_client.mix_get_single_position(symbol='BTCUSDT', marginCoin='USDT')
+        position_data = positions['data']
+        pnl = float(position_data['unrealizedPL']) if 'unrealizedPL' in position_data else 0.0
+        return pnl
+    except Exception:
+        return 0.0
+
 async def scalping_loop(update: Update = None):
     while bot_active["status"]:
         try:
-            res = open_position()
+            open_position()
             if update:
                 await update.message.reply_text("📈 Position ouverte.")
-            await asyncio.sleep(10)
-            close_positions()
-            if update:
-                await update.message.reply_text("💰 Position fermée (scalp).")
-            await asyncio.sleep(5)
+
+            for _ in range(30):  # max ~30 x 2s = 1 minute
+                if not bot_active["status"]:
+                    break
+                pnl = get_unrealized_pnl()
+                if pnl > 0:
+                    close_positions()
+                    if update:
+                        await update.message.reply_text(f"💰 Position fermée avec gain : +{round(pnl, 4)} USDT")
+                    break
+                await asyncio.sleep(2)
+
+            await asyncio.sleep(3)
+
         except Exception as e:
             if update:
                 await update.message.reply_text(f"⚠️ Erreur : {str(e)}")
-            await asyncio.sleep(10)
+            await asyncio.sleep(5)
 
-# Lancer le bot Telegram
 async def run_telegram():
     app_telegram = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     app_telegram.add_handler(CommandHandler("buy", buy))
