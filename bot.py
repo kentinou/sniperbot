@@ -18,7 +18,7 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 bot_active = {"status": False}
 bitget_client = Client(API_KEY, API_SECRET, API_PASSPHRASE, use_server_time=True)
 
-# Serveur HTTP minimal
+# Serveur HTTP minimal (pour Render)
 app = FastAPI()
 
 @app.get("/")
@@ -90,17 +90,14 @@ async def scalping_loop(update: Update = None):
                 await update.message.reply_text(f"⚠️ Erreur : {str(e)}")
             await asyncio.sleep(10)
 
-# Lancer le bot Telegram dans un thread séparé
+# Lancer le bot Telegram
 async def run_telegram():
     app_telegram = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     app_telegram.add_handler(CommandHandler("buy", buy))
     app_telegram.add_handler(CommandHandler("start", start_bot))
     app_telegram.add_handler(CommandHandler("stop", stop_bot))
     app_telegram.add_handler(CommandHandler("status", status))
-    await app_telegram.initialize()
-    await app_telegram.start()
-    await app_telegram.updater.start_polling()
-    await app_telegram.updater.idle()
+    await app_telegram.run_polling()
 
 @app.on_event("startup")
 async def startup_event():
