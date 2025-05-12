@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: superbot
-    env: python
-    buildCommand: ""
-    startCommand: "python superbot.py"
-    autoDeploy: true
-    envVars:
-      - fromFile: .env
