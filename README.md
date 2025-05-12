@@ -1,3 +1,0 @@
-# SuperBoss Sniper Bot
-
-Instructions de déploiement sur Render...
