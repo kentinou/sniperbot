@@ -22,10 +22,11 @@ app = FastAPI()
 
 @app.get("/")
 async def root():
-    return {"status": "SuperBossSniperBot actif"}
+    return {"status": "SuperBossSniperBot Debug actif"}
 
 async def buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
+        await update.message.reply_text("🟡 Tentative d'achat...")
         result = open_position()
         await update.message.reply_text(f"✅ Ordre BUY exécuté : {result}")
     except Exception as e:
@@ -48,7 +49,7 @@ def open_position():
     account = bitget_client.mix_get_account('BTCUSDT', 'usdt')
     balance = float(account['data']['available'])
     amount = round(balance * 0.02, 3)
-    result = bitget_client.mix_place_order(
+    return bitget_client.mix_place_order(
         symbol='BTCUSDT',
         marginCoin='USDT',
         size=str(amount),
@@ -58,7 +59,6 @@ def open_position():
         tradeSide='long',
         productType='usdt-futures'
     )
-    return result
 
 def close_positions():
     bitget_client.mix_place_order(
@@ -75,8 +75,7 @@ def close_positions():
 def get_unrealized_pnl():
     try:
         positions = bitget_client.mix_get_single_position(symbol='BTCUSDT', marginCoin='USDT')
-        position_data = positions['data']
-        pnl = float(position_data['unrealizedPL']) if 'unrealizedPL' in position_data else 0.0
+        pnl = float(positions['data']['unrealizedPL']) if 'unrealizedPL' in positions['data'] else 0.0
         return pnl
     except Exception:
         return 0.0
@@ -84,26 +83,25 @@ def get_unrealized_pnl():
 async def scalping_loop(update: Update = None):
     while bot_active["status"]:
         try:
-            open_position()
-            if update:
-                await update.message.reply_text("📈 Position ouverte.")
+            await update.message.reply_text("🚀 Ouverture position...")
+            res = open_position()
+            await update.message.reply_text(f"✅ Position ouverte : {res}")
 
-            for _ in range(30):  # max ~30 x 2s = 1 minute
+            for i in range(30):
                 if not bot_active["status"]:
                     break
                 pnl = get_unrealized_pnl()
+                await update.message.reply_text(f"📊 PnL flottant : {round(pnl, 4)} USDT")
                 if pnl > 0:
                     close_positions()
-                    if update:
-                        await update.message.reply_text(f"💰 Position fermée avec gain : +{round(pnl, 4)} USDT")
+                    await update.message.reply_text(f"💰 Fermeture avec gain : +{round(pnl, 4)} USDT")
                     break
                 await asyncio.sleep(2)
 
             await asyncio.sleep(3)
 
         except Exception as e:
-            if update:
-                await update.message.reply_text(f"⚠️ Erreur : {str(e)}")
+            await update.message.reply_text(f"⚠️ Erreur durant scalping : {str(e)}")
             await asyncio.sleep(5)
 
 async def run_telegram():
@@ -120,4 +118,4 @@ async def startup_event():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    uvicorn.run("bot:app", host="0.0.0.0", port=port, reload=False)
+    uvicorn.run("bot_debug:app", host="0.0.0.0", port=port, reload=False)
