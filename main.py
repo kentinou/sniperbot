@@ -1,6 +1,6 @@
 from market_data import get_futures_symbols
 from signal_generator import analyze_market
-from telebot.notifier import send_telegram_message
+from notifier import send_telegram_message
 import time
 
 def main():
