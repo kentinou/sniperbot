@@ -1,7 +1,0 @@
-{
-  "scan_interval_minutes": 60,
-  "min_points_trendline": 3,
-  "telegram_token": "8093249984:AAEysv-W_6NSF64tbeKjk8stqIKInBcX_7w",
-  "telegram_chat_id": "7290247547",
-  "volume_spike_ratio": 1.3
-}
