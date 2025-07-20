@@ -7,8 +7,8 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 EXCLUDE = {"LEVERUSDT", "BMTUSDT", "SPKUSDT", "OBOLUSDT", "BTCDOMUSDT", "BRUSDT"}
-THRESHOLD_LONG  = 35
-THRESHOLD_SHORT = 75
+THRESHOLD_LONG  = 20
+THRESHOLD_SHORT = 90
 TIMEFRAMES = ["1d", "4h"]
 
 brussels_tz = ZoneInfo("Europe/Brussels")
