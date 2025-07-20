@@ -6,7 +6,7 @@ from telebot import send_signal
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-EXCLUDE = {"LEVERUSDT", "BMTUSDT", "SPKUSDT", "OBOLUSDT"}
+EXCLUDE = {"LEVERUSDT", "BMTUSDT", "SPKUSDT", "OBOLUSDT", "BTCDOMUSDT", "BRUSDT"}
 THRESHOLD_LONG  = 20
 THRESHOLD_SHORT = 90
 TIMEFRAMES = ["1d", "4h"]
@@ -72,13 +72,13 @@ def run_scan():
                 save_signal(sig)
                 send_signal(sig)
                 emoji = "🟢" if side == "buy" else "🔴"
-                print(f"[{datetime.now(brussels_tz)}] {emoji} {symbol} ({tf.upper()}) Entry={entry:.6f} TP={tp:.6f} SL={sl:.6f}", flush=True)
+                print(f"[{datetime.now(brussels_tz)}] {emoji} SIGNAL {tf.upper()} — {symbol} | Entry={entry:.6f} | TP={tp:.6f} | SL={sl:.6f}", flush=True)
 
-                # Stop après premier signal (priorité daily)
-                break
+                break  # Stop après 1 signal (priorité daily)
 
             except Exception as e:
                 print(f"[{datetime.now(brussels_tz)}] ❌ Erreur {symbol} ({tf.upper()}) : {e}", flush=True)
 
 if __name__ == "__main__":
     run_scan()
+
