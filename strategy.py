@@ -13,8 +13,8 @@ CSV_FILE = os.path.join(BASE_DIR, "signaux.csv")
 
 # Exclusions et seuils RSI ajustés pour plus de signaux
 EXCLUDE = {"LEVERUSDT", "BMTUSDT", "SPKUSDT", "OBOLUSDT", "BTCDOMUSDT", "BRUSDT"}
-THRESHOLD_LONG = 20    # RSI < 30 pour signal long
-THRESHOLD_SHORT = 80   # RSI > 70 pour signal short
+THRESHOLD_LONG = 20    # RSI < 20 pour signal long
+THRESHOLD_SHORT = 80   # RSI > 80 pour signal short
 
 # Timeframes à scanner
 TIMEFRAMES = ["1d", "4h", "1w"]
