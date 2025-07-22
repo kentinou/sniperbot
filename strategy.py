@@ -7,29 +7,28 @@ from telebot import send_signal
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# Définir le chemin absolu du CSV à la racine du repo
+# Chemin absolu du CSV à la racine du dépôt
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CSV_FILE = os.path.join(BASE_DIR, "signaux.csv")
 
-# Exclusions et seuils RSI ajustés pour plus de signaux
+# Symbols exclus et seuils RSI
 EXCLUDE = {"LEVERUSDT", "BMTUSDT", "SPKUSDT", "OBOLUSDT", "BTCDOMUSDT", "BRUSDT"}
-THRESHOLD_LONG = 25    # RSI < 25 pour signal long
-THRESHOLD_SHORT = 75   # RSI > 75 pour signal short
+THRESHOLD_LONG  = 20   # RSI <= 20 pour signal long
+THRESHOLD_SHORT = 80   # RSI >= 80 pour signal short
 
-# Timeframes à scanner
-TIMEFRAMES = ["1d", "4h", "1w"]
+# Ajout des timeframes intraday
+TIMEFRAMES = ["1d", "4h", "1w", "30m", "15m", "5m"]
 brussels_tz = ZoneInfo("Europe/Brussels")
 
-# Paramètres pour détection de divergence classique assouplis
-PIVOT_LOOKBACK     = 100   # on regarde les 100 dernières barres
-LEFT, RIGHT        = 3, 3   # fenêtre pour pivots
-MIN_BAR_DISTANCE   = 5     # écart min réduit entre pivots
-MIN_PRICE_DIFF_PCT = 0.01  # 1% de différence de prix minimale
-MIN_RSI_DIFF       = 3.0   # 3 points de RSI minimum
+# Paramètres de divergence classique
+PIVOT_LOOKBACK     = 100
+LEFT, RIGHT        = 3, 3
+MIN_BAR_DISTANCE   = 5
+MIN_PRICE_DIFF_PCT = 0.01
+MIN_RSI_DIFF       = 3.0
 
 
 def find_pivots(series: pd.Series, left: int = LEFT, right: int = RIGHT, kind: str = "high") -> list:
-    """Retourne les indices de pivot haut ou bas dans les PIVOT_LOOKBACK dernières barres."""
     pivots = []
     data = series.iloc[-PIVOT_LOOKBACK:]
     for idx in range(left, len(data) - right):
@@ -41,7 +40,6 @@ def find_pivots(series: pd.Series, left: int = LEFT, right: int = RIGHT, kind: s
 
 
 def run_scan():
-    # Lecture du CSV existant
     try:
         df_sig = pd.read_csv(CSV_FILE)
         open_symbols = set(df_sig[df_sig["status"] == "open"]["symbol"])
@@ -49,25 +47,20 @@ def run_scan():
         open_symbols = set()
 
     symbols = [s for s in ALL_SYMBOLS if s not in EXCLUDE and s not in open_symbols]
-    timeframe_labels = "/".join(tf.upper() for tf in TIMEFRAMES)
-    print(f"[{datetime.now(brussels_tz)}] 🔍 Scan de {len(symbols)} symbols sur {timeframe_labels}", flush=True)
+    print(f"[{datetime.now(brussels_tz)}] 🔍 Scan de {len(symbols)} symbols sur {','.join(TIMEFRAMES)}", flush=True)
 
     for symbol in symbols:
         for tf in TIMEFRAMES:
             try:
-                # Récupérer OHLCV suffisant
                 df = get_ohlcv(symbol, interval=tf, limit=PIVOT_LOOKBACK + RIGHT)
                 rsi = calculate_rsi(df["close"], period=14)
                 if len(rsi) < PIVOT_LOOKBACK:
                     continue
 
-                # Indices de pivots
                 idx_high = find_pivots(df["high"], kind="high")
                 idx_low  = find_pivots(df["low"],  kind="low")
-                # Debug: afficher le nombre de pivots détectés
                 print(f"{symbol} [{tf}] -> pivots_high: {len(idx_high)}, pivots_low: {len(idx_low)}", flush=True)
 
-                # Divergence baissière
                 bearish_div = False
                 if len(idx_high) >= 2:
                     t1, t2 = idx_high[-2], idx_high[-1]
@@ -79,7 +72,6 @@ def run_scan():
                                        and rsi2 < rsi1 - MIN_RSI_DIFF)
                         print(f"  bearish_div={bearish_div}", flush=True)
 
-                # Divergence haussière
                 bullish_div = False
                 if len(idx_low) >= 2:
                     u1, u2 = idx_low[-2], idx_low[-1]
@@ -91,24 +83,21 @@ def run_scan():
                                        and rsi_u2 > rsi_u1 + MIN_RSI_DIFF)
                         print(f"  bullish_div={bullish_div}", flush=True)
 
-                # RSI actuel et décision
                 rsi_now = rsi.iloc[-1]
                 print(f"  Current RSI={rsi_now:.2f}", flush=True)
-                if rsi_now > THRESHOLD_SHORT and bearish_div:
+                if rsi_now >= THRESHOLD_SHORT and bearish_div:
                     side = "sell"
-                elif rsi_now < THRESHOLD_LONG and bullish_div:
+                elif rsi_now <= THRESHOLD_LONG and bullish_div:
                     side = "buy"
                 else:
                     print(f"  Pas de signal pour {symbol} [{tf}]", flush=True)
                     continue
 
-                # Calcul ATR, TP/SL
                 entry = df["close"].iloc[-1]
                 atr   = calculate_atr(df["high"], df["low"], df["close"], period=14).iloc[-1]
                 tp    = entry + atr if side == "buy" else entry - atr
                 sl    = entry - atr if side == "buy" else entry + atr
 
-                # Préparer et écrire le signal dans le CSV
                 sig = {
                     "timestamp":  datetime.now(brussels_tz),
                     "symbol":     symbol,
@@ -127,7 +116,6 @@ def run_scan():
                 else:
                     df_new.to_csv(CSV_FILE, mode='a', header=False, index=False)
 
-                # Envoi Telegram et log
                 send_signal(sig)
                 emoji = "🟢" if side == "buy" else "🔴"
                 print(f"[{datetime.now(brussels_tz)}] {emoji} SIGNAL {tf.upper()} — {symbol} | Entry={entry:.6f} | TP={tp:.6f} | SL={sl:.6f}", flush=True)
