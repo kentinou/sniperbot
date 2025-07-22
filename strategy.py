@@ -64,6 +64,8 @@ def run_scan():
                 # Indices de pivots
                 idx_high = find_pivots(df["high"], kind="high")
                 idx_low  = find_pivots(df["low"],  kind="low")
+                # Debug: afficher le nombre de pivots détectés
+                print(f"{symbol} [{tf}] -> pivots_high: {len(idx_high)}, pivots_low: {len(idx_low)}", flush=True)
 
                 # Divergence baissière
                 bearish_div = False
@@ -72,8 +74,10 @@ def run_scan():
                     if (df.index.get_loc(t2) - df.index.get_loc(t1)) >= MIN_BAR_DISTANCE:
                         price1, price2 = df.at[t1, "high"], df.at[t2, "high"]
                         rsi1, rsi2     = rsi.loc[t1],               rsi.loc[t2]
+                        print(f"  High pivots at {t1}/{t2} prices {price1:.4f}/{price2:.4f} RSI {rsi1:.2f}/{rsi2:.2f}", flush=True)
                         bearish_div = (price2 > price1 * (1 + MIN_PRICE_DIFF_PCT)
                                        and rsi2 < rsi1 - MIN_RSI_DIFF)
+                        print(f"  bearish_div={bearish_div}", flush=True)
 
                 # Divergence haussière
                 bullish_div = False
@@ -82,16 +86,20 @@ def run_scan():
                     if (df.index.get_loc(u2) - df.index.get_loc(u1)) >= MIN_BAR_DISTANCE:
                         low1, low2    = df.at[u1, "low"], df.at[u2, "low"]
                         rsi_u1, rsi_u2 = rsi.loc[u1],        rsi.loc[u2]
+                        print(f"  Low pivots at {u1}/{u2} lows {low1:.4f}/{low2:.4f} RSI {rsi_u1:.2f}/{rsi_u2:.2f}", flush=True)
                         bullish_div = (low2 < low1 * (1 - MIN_PRICE_DIFF_PCT)
                                        and rsi_u2 > rsi_u1 + MIN_RSI_DIFF)
+                        print(f"  bullish_div={bullish_div}", flush=True)
 
                 # RSI actuel et décision
                 rsi_now = rsi.iloc[-1]
+                print(f"  Current RSI={rsi_now:.2f}", flush=True)
                 if rsi_now > THRESHOLD_SHORT and bearish_div:
                     side = "sell"
                 elif rsi_now < THRESHOLD_LONG and bullish_div:
                     side = "buy"
                 else:
+                    print(f"  Pas de signal pour {symbol} [{tf}]", flush=True)
                     continue
 
                 # Calcul ATR, TP/SL
@@ -123,7 +131,6 @@ def run_scan():
                 send_signal(sig)
                 emoji = "🟢" if side == "buy" else "🔴"
                 print(f"[{datetime.now(brussels_tz)}] {emoji} SIGNAL {tf.upper()} — {symbol} | Entry={entry:.6f} | TP={tp:.6f} | SL={sl:.6f}", flush=True)
-                # On ne break plus => possibilité de plusieurs signaux par symbole
 
             except Exception as e:
                 print(f"[{datetime.now(brussels_tz)}] ❌ Erreur {symbol} ({tf}) : {e}", flush=True)
