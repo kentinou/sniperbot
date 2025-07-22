@@ -16,8 +16,8 @@ EXCLUDE = {"LEVERUSDT", "BMTUSDT", "SPKUSDT", "OBOLUSDT", "BTCDOMUSDT", "BRUSDT"
 THRESHOLD_LONG  = 20   # RSI <= 20 pour signal long
 THRESHOLD_SHORT = 80   # RSI >= 80 pour signal short
 
-# Ajout des timeframes intraday
-TIMEFRAMES = ["1d", "4h", "1w", "30m", "15m", "5m"]
+# Ajout de la timeframe 1h
+TIMEFRAMES = ["1d", "4h", "1h", "1w", "30m", "15m", "5m"]
 brussels_tz = ZoneInfo("Europe/Brussels")
 
 # Paramètres de divergence classique
@@ -47,7 +47,7 @@ def run_scan():
         open_symbols = set()
 
     symbols = [s for s in ALL_SYMBOLS if s not in EXCLUDE and s not in open_symbols]
-    print(f"[{datetime.now(brussels_tz)}] 🔍 Scan de {len(symbols)} symbols sur {','.join(TIMEFRAMES)}", flush=True)
+    print(f"[{datetime.now(brussels_tz)}] 🔍 Scan de {len(symbols)} symbols sur {', '.join(TIMEFRAMES)}", flush=True)
 
     for symbol in symbols:
         for tf in TIMEFRAMES:
