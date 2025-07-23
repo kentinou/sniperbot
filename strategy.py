@@ -13,8 +13,8 @@ CSV_FILE = os.path.join(BASE_DIR, "signaux.csv")
 
 # Symbols exclus et seuils RSI
 EXCLUDE = {"LEVERUSDT", "BMTUSDT", "SPKUSDT", "OBOLUSDT", "BTCDOMUSDT", "BRUSDT"}
-THRESHOLD_LONG  = 25   # RSI <= 20 pour signal long
-THRESHOLD_SHORT = 75   # RSI >= 80 pour signal short
+THRESHOLD_LONG  = 20   # RSI <= 20 pour signal long
+THRESHOLD_SHORT = 80   # RSI >= 80 pour signal short
 
 # Ajout des timeframes intraday
 TIMEFRAMES = ["1d", "4h", "1h", "1w", "30m", "15m", "5m"]
